@@ -1,15 +1,18 @@
 # import các thư viện
+from os import path
 import random
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt, QObject, Signal
+from PySide6.QtCore import Qt, QObject, Signal, QTimer
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsPixmapItem
 from Controller.PuzzlePiece import PuzzlePiece
 from collections import deque
+from Model.AStar import AStarSolver
+from Model.BFS import BFSSolver
 
 class PuzzleGame(QObject):
-    def __init__(self, image_path, grid_size=5, graphics_view=None):
+    def __init__(self, image_path, grid_size=3, graphics_view=None):
         super().__init__()
         self.image_path = image_path
         self.grid_size = grid_size
@@ -134,15 +137,42 @@ class PuzzleGame(QObject):
         return False
 
     def shufflePieces(self):
-        """Xáo trộn các mảnh ghép"""
-        positions = list(self.puzzle_pieces.keys())
-        random.shuffle(positions)
+        """Xáo trộn các mảnh ghép sao cho trạng thái luôn có thể giải được"""
 
-        new_pieces = {}
-        for old_pos, new_pos in zip(self.puzzle_pieces.keys(), positions):
-            new_pieces[new_pos] = self.puzzle_pieces[old_pos]
+        def is_solvable(puzzle, empty_row):
+            """Kiểm tra xem trạng thái hiện tại có thể giải được không"""
+            flat_puzzle = [num for row in puzzle for num in row if num != 0]
+            inversions = sum(
+                1
+                for i in range(len(flat_puzzle))
+                for j in range(i + 1, len(flat_puzzle))
+                if flat_puzzle[i] > flat_puzzle[j]
+            )
 
-        self.puzzle_pieces = new_pieces
+            if self.grid_size % 2 == 1:  # Lưới kích thước lẻ
+                return inversions % 2 == 0
+            else:  # Lưới kích thước chẵn
+                return (inversions + empty_row) % 2 == 1
+
+        while True:
+            positions = list(self.puzzle_pieces.keys())
+            random.shuffle(positions)
+
+            new_pieces = {}
+            for old_pos, new_pos in zip(self.puzzle_pieces.keys(), positions):
+                new_pieces[new_pos] = self.puzzle_pieces[old_pos]
+
+            self.puzzle_pieces = new_pieces
+
+            # Lấy trạng thái hiện tại sau khi trộn
+            state = self.getCurrentState()
+            empty_row = (
+                self.grid_size - self.empty_position[0]
+            )  # Hàng ô trống tính từ dưới lên
+
+            if is_solvable(state, empty_row):
+                break  # Nếu trạng thái hợp lệ, thoát vòng lặp
+
         self.scene.clear()
         self.setupScene()
 
@@ -169,114 +199,33 @@ class PuzzleGame(QObject):
 
         return True
 
-    def solvePuzzle(self, algorithm):
-        """Giải quyết trò chơi bằng thuật toán AI"""
-        if algorithm == "BFS":
-            print("BFS")
-            path = self.solveWithBFS()
-            print(path)
-        elif algorithm == "A* H1":
-            print("A* H1")
-            path = self.solveWithAStar("H1")
-        elif algorithm == "A* H2":
-            print("A* H2")
-            path = self.solveWithAStar("H2")
-        elif algorithm == "A* H3":
-            print("A* H3")
-            path = self.solveWithAStar("H3")
-        else:
-            print("Thuật toán không hợp lệ")
-        current_state = self.getCurrentState()
-        print(current_state)
-    def solveWithBFS(self):
-        """Giải quyết trò chơi bằng thuật toán BFS"""
-
-        # Trạng thái mục tiêu (giải quyết theo dạng ma trận 5x5)
-        goal_state = [
-            [
-                (i * self.grid_size + j + 1) % (self.grid_size * self.grid_size)
-                for j in range(self.grid_size)
-            ]
-            for i in range(self.grid_size)
-        ]
-
-        # Chuyển trạng thái hiện tại thành một tuple để dễ dàng so sánh
-        start_state = tuple(tuple(row) for row in self.getCurrentState())
-
-        # Kiểm tra nếu trạng thái ban đầu đã là trạng thái mục tiêu
-        if start_state == tuple(tuple(row) for row in goal_state):
-            print("Trò chơi đã hoàn thành!")
-            return []
-
-        # BFS: Khởi tạo hàng đợi, danh sách đã thăm và các phép di chuyển
-        queue = deque(
-            [(start_state, [])]
-        )  # Lưu trạng thái hiện tại và chuỗi các mảnh ghép cần di chuyển
-        visited = set()  # Để tránh thăm lại trạng thái đã kiểm tra
-
-        visited.add(start_state)
-
-        # Các phép di chuyển hợp lệ (lên, xuống, trái, phải)
-        moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Di chuyển theo chiều (row, col)
-
-        while queue:
-            current_state, path = queue.popleft()
-
-            # Tìm vị trí của ô trống (0)
-            empty_pos = next(
-                (r, c)
-                for r in range(self.grid_size)
-                for c in range(self.grid_size)
-                if current_state[r][c] == 0
-            )
-            empty_row, empty_col = empty_pos
-
-            # Thực hiện các phép di chuyển từ ô trống
-            for move in moves:
-                new_row, new_col = empty_row + move[0], empty_col + move[1]
-
-                if 0 <= new_row < self.grid_size and 0 <= new_col < self.grid_size:
-                    # Di chuyển mảnh ghép và tạo ra trạng thái mới
-                    new_state = list(
-                        list(row) for row in current_state
-                    )  # Sao chép trạng thái hiện tại
-                    new_state[empty_row][empty_col], new_state[new_row][new_col] = (
-                        new_state[new_row][new_col],
-                        new_state[empty_row][empty_col],
-                    )
-                    new_state = tuple(
-                        tuple(row) for row in new_state
-                    )  # Chuyển thành tuple để so sánh
-
-                    # Nếu chưa thăm trạng thái này, thêm vào hàng đợi
-                    if new_state not in visited:
-                        visited.add(new_state)
-                        new_path = path + [
-                            new_state[new_row][new_col]
-                        ]  # Thêm mảnh ghép di chuyển vào đường đi
-
-                        # Kiểm tra nếu đã đến trạng thái mục tiêu
-                        if new_state == tuple(tuple(row) for row in goal_state):
-                            print("Đã giải quyết trò chơi!")
-                            return (
-                                new_path  # Trả về danh sách các mảnh ghép cần di chuyển
-                            )
-
-                        queue.append((new_state, new_path))
-
-        print("Không thể giải quyết trò chơi với BFS!")
-        return []
-
-    def solveWithAStar(self, heuristic):
-        pass
 
     def getCurrentState(self):
-        """Trả về trạng thái hiện tại của trò chơi dưới dạng ma trận 5x5"""
-        state_matrix = [
-            [0 for _ in range(self.grid_size)] for _ in range(self.grid_size)
-        ]
+        """Trả về trạng thái hiện tại của trò chơi dưới dạng ma trận"""
+        state_matrix = [[0 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
 
         for (row, col), piece in self.puzzle_pieces.items():
             state_matrix[row][col] = piece.piece_number
 
+        # Xuất thông tin về pos, row, col và piece_number
+        for (row, col), piece in self.puzzle_pieces.items():
+            print(f"Pos: ({row}, {col}) - piece_number: {piece.piece_number}")
+
         return state_matrix
+
+    def solvePuzzle(self, algorithm):
+        """Giải quyết trò chơi bằng thuật toán AI"""
+        current_state = self.getCurrentState()
+        print(current_state)
+        if algorithm == "BFS":
+            print("BFS")
+            solver = BFSSolver(self.grid_size)
+            path = solver.solve(current_state)
+            print(path)
+        elif algorithm == "A* H1":
+            print("A* H1")
+            solver = AStarSolver(self.grid_size)
+            path = solver.solve(current_state, heuristic="H1")
+            print(path)
+        else:
+            print("Thuật toán không hợp lệ")
