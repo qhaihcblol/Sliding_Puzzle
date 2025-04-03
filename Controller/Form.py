@@ -21,14 +21,19 @@ class Form(QMainWindow, Ui_Main):
         super().__init__()
         self.setupUi(self)
         self.puzzle_game = PuzzleGame(
-            "Image/Picture.jpeg", graphics_view=self.graphicsView
+            "Image/Picture.jpeg",
+            graphics_view=self.graphicsView,
+            step_line_edit=self.step_Le,
+            stop_btn=self.stop_Btn,
         )
+
         self.setupSignal()
 
     def setupSignal(self):
         self.jumble_Btn.clicked.connect(self.puzzle_game.shufflePieces)
         self.reset_Btn.clicked.connect(self.puzzle_game.resetPieces)
         self.aiSolve_Btn.clicked.connect(self.solvePuzzle)
+        self.stop_Btn.clicked.connect(self.puzzle_game.stopAnimation)
 
     def solvePuzzle(self):
         selected_algorithm = self.algorithm_Cbb.currentText()

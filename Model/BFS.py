@@ -17,13 +17,23 @@ class BFSSolver:
         ]
 
     def get_empty_pos(self, state):
+        """Tìm vị trí ô trống (0) trong trạng thái"""
         for r in range(self.grid_size):
             for c in range(self.grid_size):
                 if state[r][c] == 0:
                     return (r, c)
         return None
 
+    def get_piece_position(self, piece_value, state):
+        """Trả về vị trí (row, col) của mảnh có giá trị 'piece_value' trong trạng thái"""
+        for r in range(self.grid_size):
+            for c in range(self.grid_size):
+                if state[r][c] == piece_value:
+                    return (r, c)
+        return None
+
     def solve(self, start_state):
+        """Giải quyết trò chơi bằng BFS, trả về danh sách vị trí mảnh cần sắp xếp"""
         start_state = tuple(tuple(row) for row in start_state)
         goal_state_tuple = tuple(tuple(row) for row in self.goal_state)
         if start_state == goal_state_tuple:
@@ -45,7 +55,7 @@ class BFSSolver:
                     new_state = [list(row) for row in current_state]
                     moved_value = new_state[new_row][
                         new_col
-                    ]  # Lưu giá trị trước hoán đổi
+                    ]  # Lưu giá trị mảnh di chuyển
                     new_state[empty_row][empty_col], new_state[new_row][new_col] = (
                         new_state[new_row][new_col],
                         new_state[empty_row][empty_col],
@@ -54,7 +64,9 @@ class BFSSolver:
 
                     if new_state not in visited:
                         visited.add(new_state)
-                        new_path = path + [moved_value]
+                        new_path = path + [
+                            self.get_piece_position(moved_value, current_state)
+                        ]
                         if new_state == goal_state_tuple:
                             print("Đã giải quyết trò chơi!")
                             return new_path

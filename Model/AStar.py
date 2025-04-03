@@ -157,6 +157,7 @@ class AStarSolver:
                         total += 2
         return total + self.h1(state)  # Kết hợp với H1 để tăng độ chính xác
 
+
     def solve(self, start_state, heuristic="H2"):
         """Giải quyết trò chơi bằng thuật toán A* với heuristic được chọn"""
         start_state = tuple(tuple(row) for row in start_state)
@@ -208,10 +209,10 @@ class AStarSolver:
 
                         if new_state not in g_scores or g_new < g_scores[new_state]:
                             g_scores[new_state] = g_new
-                            new_path = path + [moved_value]
-                            heapq.heappush(
-                                open_set, (f_new, g_new, new_state, new_path)
-                            )
+                            new_path = path + [
+                                (new_row, new_col)
+                            ]  # Lưu vị trí của mảnh ghép
+                            heapq.heappush(open_set, (f_new, g_new, new_state, new_path))
 
         print(f"Không thể giải quyết trò chơi với A* ({heuristic})!")
         return []
