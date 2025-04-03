@@ -270,6 +270,10 @@ class PuzzleGame(QObject):
             solver = AStarSolver(self.grid_size)
             path = solver.solve(current_state, heuristic="H5")
             print("Path tìm được bằng A* H5:", path)
+        elif algorithm == "A* H6":
+            solver = AStarSolver(self.grid_size)
+            path = solver.solve(current_state, heuristic="H6")
+            print("Path tìm được bằng A* H6:", path)
         else:
             print("Thuật toán không hợp lệ")
             return
@@ -277,10 +281,6 @@ class PuzzleGame(QObject):
         self.animateSolution(path)
 
     def animateSolution(self, path):
-        """
-        Thực hiện animation giải puzzle theo đường đi đã tìm được.
-        Ở đây, path là danh sách các tuple (row, col) của mảnh cần được chọn.
-        """
         if not path:
             return
 
